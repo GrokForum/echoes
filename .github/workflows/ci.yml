@@ -1,0 +1,31 @@
+name: ci
+on: [push, pull_request]
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Size budget (game must be <= 4096 bytes)
+        run: |
+          size=$(wc -c < game)
+          echo "game is $size bytes (budget 4096)"
+          echo "### game: $size / 4096 bytes" >> "$GITHUB_STEP_SUMMARY"
+          test "$size" -le 4096 || { echo "::error::game is $size bytes, over the 4096-byte budget"; exit 1; }
+      - name: Install test deps
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq xz-utils gcc
+          python3 -m pip install --quiet pyte
+      - name: Play tests
+        run: python3 tests/test_game.py
+      - name: Extra tests
+        run: python3 tests/test_extra.py
+      - name: Rebuild from source and check the budget
+        run: |
+          cp game /tmp/game.committed
+          ./build.sh
+          size=$(wc -c < game)
+          echo "rebuilt game is $size bytes with $(gcc --version | head -1)"
+          test "$size" -le 4096 || { echo "::error::rebuilt game is $size bytes, over budget"; exit 1; }
+          cmp -s game /tmp/game.committed && echo "byte-identical to committed game" || echo "::notice::rebuild differs from committed game (different toolchain); size still within budget"

@@ -1,0 +1,4 @@
+*.lzma
+*.cast
+frame_*.txt
+__pycache__/
