@@ -72,6 +72,23 @@ D = {"w": (0, -1), "s": (0, 1), "a": (-1, 0), "d": (1, 0)}
 key(ESC["d"], 0.35)
 p1 = player()
 check("arrow key starts game and moves player", p1 is not None and p0 is not None and p1[0] > p0[0], f"{p0} -> {p1}")
+# Pause while the first steps are still in open space: full fuse, no ghost, not against a wall.
+# Snapshot after PAUSED is on screen. A key that arrives mid-tick can move one cell first;
+# the cells after that must stay put.
+key(" ", 0.05)
+deadline = time.time() + 0.5
+while time.time() < deadline and "PAUSED" not in text():
+    pump(0.05)
+held_player, held_line = player(), screen.display[0]
+saw_pause = "PAUSED" in text() and "GAME OVER" not in text()
+pump(0.6)  # longer than one 100 ms tick
+alive = os.waitpid(pid, os.WNOHANG)[0] == 0
+check("space pauses a safe run",
+      saw_pause and alive and "PAUSED" in text() and "GAME OVER" not in text()
+      and player() == held_player and screen.display[0] == held_line,
+      f"at {player()} was {held_player} paused {saw_pause}")
+key(" ", 0.35)
+check("space resumes a safe run", "PAUSED" not in text() and "GAME OVER" not in text() and player() is not None)
 last_dir = "d"; best_seen = 0; frames_with_ghosts = None
 t_end = time.time() + 40
 while time.time() < t_end and best_seen < 6:
@@ -100,13 +117,7 @@ check("collecting gems raises score", best_seen >= 3, f"score reached {best_seen
 check("each gem leaves a ghost on the board", frames_with_ghosts is not None)
 
 if "GAME OVER" not in text():
-    key(" ", 0.3); s1 = text(); key(b"", 0.5); s2 = text()
-    died = "GAME OVER" in s1
-    check("space pauses (board frozen)", died or ("PAUSED" in s1 and s1.split("\n")[2:20] == s2.split("\n")[2:20]),
-          "bot died just before pausing; skipped" if died else ("ok" if "PAUSED" in s1 else "no PAUSED:\n" + s1))
-    key(" ", 0.2)
-    check("space resumes", "PAUSED" not in text())
-    # drive into the top wall
+    # drive into the top wall. Pause is checked above, while the run is still safe.
     key(ESC["w"], 0.1)
     for _ in range(40):
         pump(0.1)

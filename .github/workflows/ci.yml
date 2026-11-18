@@ -21,6 +21,8 @@ jobs:
         run: python3 tests/test_game.py
       - name: Extra tests
         run: python3 tests/test_extra.py
+      - name: Score, share, and pause
+        run: python3 tests/test_share.py
       - name: Rebuild from source and check the budget
         run: |
           cp game /tmp/game.committed

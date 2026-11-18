@@ -72,11 +72,11 @@ N int gpos(int i, u32 t) {                                /* where ghost i is at
   return pool[i * PL + k];
 }
 
-N void die(void) {
-  state = 3;
+N void bank(void) { /* remember this attempt; the share is the best one only */
   if (score > best || !tries) { best = score; bestn = score; for (int i = 0; i < score && i < MAXG; i++) bgrade[i] = grade[i]; }
-  tries++; tune(3, 392, 330, 262, 170);
+  tries++;
 }
+N void die(void) { state = 3; bank(); tune(3, 392, 330, 262, 170); }
 
 N void tick(void) {
   if (qn) { int d = qd[0]; for (int i = 1; i < qn; i++) qd[i - 1] = qd[i]; qn--;
@@ -111,7 +111,7 @@ N void render(void) {
   p = str(ob, "\33[H\33[0;1;97m ECHOES \33[0;36m");
   if (daily) { *p++ = '#'; p = num(p, day - 20453); } else p = str(p, "practice");
   p = str(p, "  \33[92m\xe2\x97\x86 \33[1m"); p = num(p, score);
-  p = str(p, "\33[0;37m  best "); p = num(p, best);
+  p = str(p, "\33[0;37m  best "); p = num(p, score > best ? score : best);
   p = str(p, "  fuse \33[33m");
   for (int i = 0; i < 20; i++) p = str(p, i * fmax < fuse * 20 ? "\xe2\x96\x88" : "\33[90m\xe2\x96\x91");
   p = str(p, "\33[0m\33[K\n\33[90m\xe2\x94\x8c");
@@ -146,17 +146,19 @@ N void render(void) {
 }
 
 N __attribute__((noreturn)) void quit(void) {
+  if (state == 1 || state == 2) bank();                  /* quit keeps the run still on screen */
   sc(16, 0, 0x5402, (long)tio, 0);                       /* TCSETS: give the terminal back */
   p = str(ob, "\33[0m\33[?25h\33[2J\33[H");
   if (tries) {
     if (daily) { p = str(p, "ECHOES #"); p = num(p, day - 20453); } else p = str(p, "ECHOES practice");
     p = str(p, " \xe2\x96\xb8 "); p = num(p, best); p = str(p, " gems, best of "); p = num(p, tries);
     p = str(p, tries > 1 ? " tries\n" : " try\n");
-    for (int i = 0; i < bestn && i < 50; i++) {        /* green = fast grab, yellow = ok, orange = slow */
+    int n = bestn < MAXG ? bestn : MAXG;              /* one stored grade per gem, never past the grid */
+    for (int i = 0; i < n; i++) {                      /* green fast, yellow ok, orange slow */
       p = str(p, bgrade[i] == 0 ? "\xf0\x9f\x9f\xa9" : bgrade[i] == 1 ? "\xf0\x9f\x9f\xa8" : "\xf0\x9f\x9f\xa7");
       if (i % 10 == 9) *p++ = '\n';
     }
-    if (bestn % 10 || bestn > 50) *p++ = '\n';
+    if (n % 10) *p++ = '\n';
   }
   out(p); sc(60, 0, 0, 0, 0); for (;;);
 }
